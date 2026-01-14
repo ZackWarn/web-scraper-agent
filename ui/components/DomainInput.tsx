@@ -21,7 +21,7 @@ export default function DomainInput({ onProcessingStart, apiOnline = true }: Dom
     setIsSubmitting(true);
 
     const domainList = domains
-      .split("\n")
+      .split(/[\s,]+/)
       .map((d) => d.trim())
       .filter((d) => d.length > 0);
 
@@ -55,7 +55,7 @@ export default function DomainInput({ onProcessingStart, apiOnline = true }: Dom
           Enter Domains to Process
         </h2>
         <p className="text-gray-600 mb-4">
-          Enter one domain per line (e.g., example.com)
+          Enter domains separated by newline, space, or comma (e.g., example.com another.com)
         </p>
       </div>
 
@@ -63,14 +63,14 @@ export default function DomainInput({ onProcessingStart, apiOnline = true }: Dom
         <textarea
           value={domains}
           onChange={(e) => setDomains(e.target.value)}
-          placeholder="example.com&#10;another-company.com&#10;tech-startup.io"
+          placeholder="example.com another-company.com tech-startup.io"
           className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm text-black"
           disabled={isSubmitting}
         />
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            {domains.split("\n").filter((d) => d.trim()).length} domains
+            {domains.split(/[\s,]+/).filter((d) => d.trim()).length} domains
           </span>
           <button
             type="submit"

@@ -62,6 +62,34 @@ class CompanyData(BaseModel):
     services: List[str]
 
 
+def normalize_domains(raw_domains: List[str]) -> List[str]:
+    """Split domains on commas/whitespace, strip protocol/paths, dedupe."""
+    cleaned: List[str] = []
+    for entry in raw_domains:
+        if not entry:
+            continue
+        # Allow space- or comma-separated domains in a single line
+        for token in entry.replace(",", " ").split():
+            d = token.strip()
+            if not d:
+                continue
+            d = d.lower()
+            if d.startswith(("http://", "https://")):
+                d = d.split("://", 1)[-1]
+            d = d.split("/")[0]
+            cleaned.append(d)
+
+    # Preserve order while removing duplicates
+    seen = set()
+    result: List[str] = []
+    for d in cleaned:
+        if d in seen:
+            continue
+        seen.add(d)
+        result.append(d)
+    return result
+
+
 def process_domains_background(job_id: str, domains: List[str]):
     """Background task to process domains with human-in-the-loop approval"""
     from datetime import datetime
@@ -164,10 +192,14 @@ async def start_processing(input_data: DomainInput, background_tasks: Background
 
     job_id = str(uuid.uuid4())
 
-    # Start background processing
-    background_tasks.add_task(process_domains_background, job_id, input_data.domains)
+    domains = normalize_domains(input_data.domains)
+    if not domains:
+        raise HTTPException(status_code=400, detail="No valid domains provided")
 
-    return {"job_id": job_id, "message": "Processing started"}
+    # Start background processing
+    background_tasks.add_task(process_domains_background, job_id, domains)
+
+    return {"job_id": job_id, "message": "Processing started", "count": len(domains)}
 
 
 # Utilities to read domains from a SQLite database
@@ -290,6 +322,8 @@ async def start_processing_csv(
         dom = row[domain_idx].strip()
         if dom:
             domains.append(dom)
+
+    domains = normalize_domains(domains)
 
     if not domains:
         raise HTTPException(status_code=400, detail="No domains found in CSV")

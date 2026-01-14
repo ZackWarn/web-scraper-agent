@@ -47,3 +47,6 @@ ui/.env.local
 ui/.env.development.local
 ui/.env.test.local
 ui/.env.production.local
+
+# Editor history/backups
+.history/
