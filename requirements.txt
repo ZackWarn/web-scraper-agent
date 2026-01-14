@@ -1,0 +1,12 @@
+httpx
+beautifulsoup4
+playwright
+builtwith
+openpyxl
+langgraph
+langchain
+langchain-community
+langchain-openai
+fastapi
+uvicorn
+pydantic
