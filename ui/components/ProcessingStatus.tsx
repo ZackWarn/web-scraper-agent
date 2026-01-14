@@ -23,6 +23,8 @@ export default function ProcessingStatus({
   const [queueCounts, setQueueCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
   const [preview, setPreview] = useState<{ domain: string; data: any } | null>(null);
+  const [pendingList, setPendingList] = useState<{ domain: string; data: any }[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [decision, setDecision] = useState<Record<string, "accepted" | "rejected">>({});
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
@@ -58,16 +60,23 @@ export default function ProcessingStatus({
         }
 
         // Choose a pending approval to preview: prefer the first pending domain
+        // Build pending approvals list
         if (data.pending_approvals && typeof data.pending_approvals === "object") {
-          const entries = Object.entries(data.pending_approvals);
-          if (entries.length > 0) {
-            const [domain, payload] = entries[0];
-            setPreview({ domain, data: payload });
-          } else {
+          const entries = Object.entries(data.pending_approvals).map(([domain, payload]) => ({ domain, data: payload }));
+          setPendingList(entries);
+
+          // Maintain or assign selection
+          if (entries.length === 0) {
+            setSelectedDomain(null);
             setPreview(null);
+          } else {
+            const current = entries.find((e) => e.domain === selectedDomain) || entries[0];
+            setSelectedDomain(current.domain);
+            setPreview(current);
           }
         } else if (data.last_extracted && data.last_extracted.domain) {
-          // Fallback to last_extracted if present
+          setPendingList([]);
+          setSelectedDomain(data.last_extracted.domain);
           setPreview(data.last_extracted);
         }
 
@@ -93,7 +102,7 @@ export default function ProcessingStatus({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [jobId, onComplete]);
+  }, [jobId, onComplete, selectedDomain]);
 
   const getLogColor = (level: string) => {
     switch (level) {
@@ -183,6 +192,34 @@ export default function ProcessingStatus({
           </div>
         )}
       </div>
+
+      {/* Pending approvals queue */}
+      {pendingList.length > 0 && (
+        <div className="mt-4 border border-blue-200 rounded-lg bg-blue-50 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-semibold text-blue-800">Pending Approvals Queue</div>
+            <div className="text-xs text-blue-700">{pendingList.length} awaiting decision</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {pendingList.map((item) => (
+              <button
+                key={item.domain}
+                onClick={() => {
+                  setSelectedDomain(item.domain);
+                  setPreview(item);
+                }}
+                className={`px-3 py-2 rounded border text-sm transition-colors ${
+                  selectedDomain === item.domain
+                    ? "bg-blue-600 text-white border-blue-700"
+                    : "bg-white text-blue-700 border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                {item.domain}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Extracted data preview + accept/reject */}
       {preview && (
