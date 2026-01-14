@@ -20,6 +20,7 @@ export default function ProcessingStatus({
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
   const [workerStatus, setWorkerStatus] = useState<string>("idle");
+  const [queueCounts, setQueueCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
   const [preview, setPreview] = useState<{ domain: string; data: any } | null>(null);
   const [decision, setDecision] = useState<Record<string, "accepted" | "rejected">>({});
@@ -39,6 +40,12 @@ export default function ProcessingStatus({
         const res = await fetch(`${API_BASE}/api/status/${jobId}`);
         const data = await res.json();
 
+        setQueueCounts({
+          pending: data.pending_count ?? 0,
+          approved: data.approved_count ?? 0,
+          rejected: data.rejected_count ?? 0,
+        });
+
         // Update worker status
         if (data.status) {
           if (data.status === "completed") {
@@ -50,8 +57,17 @@ export default function ProcessingStatus({
           }
         }
 
-        // Preview latest extracted data (if any)
-        if (data.last_extracted && data.last_extracted.domain) {
+        // Choose a pending approval to preview: prefer the first pending domain
+        if (data.pending_approvals && typeof data.pending_approvals === "object") {
+          const entries = Object.entries(data.pending_approvals);
+          if (entries.length > 0) {
+            const [domain, payload] = entries[0];
+            setPreview({ domain, data: payload });
+          } else {
+            setPreview(null);
+          }
+        } else if (data.last_extracted && data.last_extracted.domain) {
+          // Fallback to last_extracted if present
           setPreview(data.last_extracted);
         }
 
@@ -141,6 +157,11 @@ export default function ProcessingStatus({
               🔧 Worker: {workerStatus}
             </span>
           </div>
+        </div>
+        <div className="flex gap-2 text-xs">
+          <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded">Pending: {queueCounts.pending}</span>
+          <span className="px-2 py-1 bg-green-50 text-green-700 rounded">Approved: {queueCounts.approved}</span>
+          <span className="px-2 py-1 bg-red-50 text-red-700 rounded">Rejected: {queueCounts.rejected}</span>
         </div>
       </div>
 
@@ -275,9 +296,7 @@ export default function ProcessingStatus({
       <div className="mt-4 grid grid-cols-4 gap-3 text-center">
         <div className="bg-green-50 p-3 rounded-lg">
           <div className="text-sm text-gray-600">Completed</div>
-          <div className="text-xl font-bold text-green-600">
-            {logs.filter((l) => l.level === "success").length}
-          </div>
+          <div className="text-xl font-bold text-green-600">{queueCounts.approved}</div>
         </div>
         <div className="bg-red-50 p-3 rounded-lg">
           <div className="text-sm text-gray-600">Failed</div>

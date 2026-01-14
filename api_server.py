@@ -365,7 +365,8 @@ async def accept_extracted(input_data: AcceptInput):
             "message": f"🚫 Rejected {domain}",
         })
     
-    if len(job["pending_approvals"]) == 0 and job["completed"] + job["failed"] >= job["total"]:\n        job["status"] = "completed"
+    if len(job["pending_approvals"]) == 0 and job["completed"] + job["failed"] >= job["total"]:
+        job["status"] = "completed"
 
     return {"job_id": job_id, "domain": domain, "accepted": input_data.accept}
 
