@@ -91,7 +91,7 @@ def normalize_domains(raw_domains: List[str]) -> List[str]:
 
 
 def process_domains_background(job_id: str, domains: List[str]):
-    """Background task to process domains with human-in-the-loop approval"""
+    """Background task to process domains. Queues extracted data for approval without blocking."""
     from datetime import datetime
 
     def add_log(level: str, message: str):
@@ -108,8 +108,9 @@ def process_domains_background(job_id: str, domains: List[str]):
         "failed": 0,
         "current_domain": None,
         "logs": [],
-        "last_extracted": None,
-        "accepted_domains": {},
+        "pending_approvals": {},
+        "approved_data": {},
+        "rejected_domains": [],
     }
 
     add_log("info", f"🚀 Starting to process {len(domains)} domains")
@@ -119,46 +120,12 @@ def process_domains_background(job_id: str, domains: List[str]):
         try:
             add_log("info", f"🔍 Scraping & Extracting {domain}...")
             
-            # Run extraction but SKIP save
             result = process_domain(domain, skip_save=True)
             
-            # Attach latest extracted preview (if any)
-            if result.get("extracted_data"):
-                processing_jobs[job_id]["last_extracted"] = {
-                    "domain": domain,
-                    "data": result["extracted_data"],
-                }
-                
-                # Check if extraction was successful before asking for approval
-                if result["status"] == "extracted":
-                    add_log("info", f"⏳ Waiting for approval for {domain}...")
-                    
-                    # Wait for user decision
-                    decision = None
-                    while decision is None:
-                        # Check decision in global state
-                        decision = processing_jobs[job_id].get("accepted_domains", {}).get(domain)
-                        if decision is not None:
-                            break
-                        time.sleep(0.5)
-                    
-                    if decision is True: # Accepted
-                        add_log("info", f"💾 Saving data for {domain}...")
-                        save_extracted_data(domain, result["extracted_data"])
-                        processing_jobs[job_id]["completed"] += 1
-                        add_log("success", f"✅ Successfully processed and saved {domain}")
-                    else: # Rejected
-                        add_log("warning", f"🚫 User rejected {domain}. Skipping save.")
-                        # Count as completed? Or failed? Maybe just processed but not saved.
-                        # We'll count as completed (processed) but logged rejection.
-                        processing_jobs[job_id]["completed"] += 1
-                else:
-                    # Extraction failed
-                    processing_jobs[job_id]["failed"] += 1
-                    add_log("error", f"❌ Failed to extract {domain}: {result.get('error', 'Unknown error')}")
-
+            if result.get("extracted_data") and result["status"] == "extracted":
+                processing_jobs[job_id]["pending_approvals"][domain] = result["extracted_data"]
+                add_log("info", f"⏳ {domain} extracted - queued for approval (non-blocking)")
             else:
-                 # No data extracted (failed scrape or preprocess)
                 processing_jobs[job_id]["failed"] += 1
                 add_log("error", f"❌ Failed to extract {domain}: {result.get('error', 'Unknown error')}")
 
@@ -166,15 +133,14 @@ def process_domains_background(job_id: str, domains: List[str]):
             logging.error(f"Error processing {domain}: {e}")
             processing_jobs[job_id]["failed"] += 1
             add_log("error", f"❌ Error processing {domain}: {str(e)}")
-        
-        # Clear preview before next
-        # processing_jobs[job_id]["last_extracted"] = None
 
-    processing_jobs[job_id]["status"] = "completed"
+    processing_jobs[job_id]["status"] = "waiting_approval"
     processing_jobs[job_id]["current_domain"] = None
+    
+    pending_count = len(processing_jobs[job_id]["pending_approvals"])
     add_log(
         "success",
-        f"✅ Processing complete! {processing_jobs[job_id]['completed']} processed, {processing_jobs[job_id]['failed']} failed",
+        f"✅ Extraction complete! {pending_count} awaiting approval, {processing_jobs[job_id]['failed']} failed",
     )
 
 
@@ -336,11 +302,17 @@ async def start_processing_csv(
 
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
-    """Get processing status"""
+    """Get processing status with approval queue info."""
     if job_id not in processing_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return processing_jobs[job_id]
+    job = processing_jobs[job_id]
+    return {
+        **job,
+        "pending_count": len(job.get("pending_approvals", {})),
+        "approved_count": len(job.get("approved_data", {})),
+        "rejected_count": len(job.get("rejected_domains", [])),
+    }
 
 
 class AcceptInput(BaseModel):
@@ -351,28 +323,49 @@ class AcceptInput(BaseModel):
 
 @app.post("/api/accept_extracted")
 async def accept_extracted(input_data: AcceptInput):
-    """Record user acceptance of extracted data for a domain."""
+    """Approve or reject queued extracted data. Non-blocking."""
     job_id = input_data.job_id
     domain = input_data.domain
     if job_id not in processing_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = processing_jobs[job_id]
-    job.setdefault("accepted_domains", {})
-    job["accepted_domains"][domain] = input_data.accept
+    
+    if domain not in job.get("pending_approvals", {}):
+        raise HTTPException(status_code=404, detail=f"Domain {domain} not in pending approvals")
 
-    # Log the decision
-    decision = "✅ Accepted" if input_data.accept else "🚫 Rejected"
     from datetime import datetime
-
     timestamp = datetime.now().strftime("%H:%M:%S")
-    job["logs"].append(
-        {
+    
+    if input_data.accept:
+        extracted_data = job["pending_approvals"].pop(domain)
+        try:
+            save_extracted_data(domain, extracted_data)
+            job["approved_data"][domain] = extracted_data
+            job["completed"] += 1
+            job["logs"].append({
+                "timestamp": timestamp,
+                "level": "success",
+                "message": f"✅ Approved and saved {domain}",
+            })
+        except Exception as e:
+            job["failed"] += 1
+            job["logs"].append({
+                "timestamp": timestamp,
+                "level": "error",
+                "message": f"❌ Failed to save {domain}: {str(e)}",
+            })
+    else:
+        job["pending_approvals"].pop(domain)
+        job["rejected_domains"].append(domain)
+        job["completed"] += 1
+        job["logs"].append({
             "timestamp": timestamp,
-            "level": "info",
-            "message": f"{decision} extracted preview for {domain}",
-        }
-    )
+            "level": "warning",
+            "message": f"🚫 Rejected {domain}",
+        })
+    
+    if len(job["pending_approvals"]) == 0 and job["completed"] + job["failed"] >= job["total"]:\n        job["status"] = "completed"
 
     return {"job_id": job_id, "domain": domain, "accepted": input_data.accept}
 
