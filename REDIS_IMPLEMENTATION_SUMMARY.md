@@ -11,6 +11,7 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 1. Core Redis Components
 
 #### `redis_manager.py` (291 lines)
+
 - **Purpose**: Centralized Redis queue management
 - **Key Features**:
   - Job creation and tracking
@@ -26,6 +27,7 @@ All Redis parallel processing features have been successfully implemented and pu
   - `get_worker_stats()` - Monitor queue stats
 
 #### `redis_worker.py` (158 lines)
+
 - **Purpose**: Parallel worker process for domain processing
 - **Key Features**:
   - Polls Redis queue for tasks
@@ -43,14 +45,13 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 2. API Server Updates
 
 #### `api_server.py` (Modified)
+
 - **New Endpoints**:
   - `POST /api/process_redis` - Submit job for parallel processing
   - `GET /api/health` - Check Redis connectivity
   - `GET /api/worker_stats` - Get queue statistics
-  
 - **Enhanced Endpoints**:
   - `GET /api/status/{job_id}` - Now supports both sequential and Redis jobs
-  
 - **Features**:
   - Auto-detects Redis availability at startup
   - Graceful fallback to sequential mode if Redis unavailable
@@ -59,6 +60,7 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 3. Worker Management
 
 #### `start_workers.ps1` (PowerShell)
+
 - Launches multiple worker processes as background jobs
 - Configurable worker count (default: 5)
 - Aggregates output from all workers
@@ -66,6 +68,7 @@ All Redis parallel processing features have been successfully implemented and pu
 - **Usage**: `.\start_workers.ps1 5`
 
 #### `start_workers.sh` (Bash)
+
 - Linux/macOS equivalent
 - Same features as PowerShell version
 - **Usage**: `./start_workers.sh 5`
@@ -73,6 +76,7 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 4. Monitoring Tools
 
 #### `multi_worker_monitor.py` (134 lines)
+
 - **Purpose**: Track resource usage across multiple workers
 - **Metrics Collected**:
   - Worker count (dynamic)
@@ -85,6 +89,7 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 5. Documentation
 
 #### `REDIS_SETUP.md` (Comprehensive guide)
+
 - Architecture overview with diagrams
 - Prerequisites and installation instructions
 - Step-by-step usage guide
@@ -97,7 +102,9 @@ All Redis parallel processing features have been successfully implemented and pu
 ### 6. Dependencies
 
 #### `requirements.txt` (Updated)
+
 Added:
+
 - `redis` - Python Redis client
 - `rq` - Redis Queue library
 - `psutil` - Resource monitoring
@@ -139,28 +146,29 @@ Added:
 
 Based on baseline metrics:
 
-| Metric | Sequential | Redis Parallel (5 workers) | Improvement |
-|--------|-----------|---------------------------|-------------|
-| **Throughput** | 0.727 domains/min | 2.5-3.5 domains/min | **3.5-5x** |
-| **5 domains** | 5m 30s | ~2 minutes | **60% faster** |
-| **10 domains** | ~11 minutes | ~3 minutes | **70% faster** |
-| **50 domains** | ~55 minutes | ~15 minutes | **73% faster** |
+| Metric         | Sequential        | Redis Parallel (5 workers) | Improvement    |
+| -------------- | ----------------- | -------------------------- | -------------- |
+| **Throughput** | 0.727 domains/min | 2.5-3.5 domains/min        | **3.5-5x**     |
+| **5 domains**  | 5m 30s            | ~2 minutes                 | **60% faster** |
+| **10 domains** | ~11 minutes       | ~3 minutes                 | **70% faster** |
+| **50 domains** | ~55 minutes       | ~15 minutes                | **73% faster** |
 
 ## Key Differences from Sequential Mode
 
-| Aspect | Sequential | Redis Parallel |
-|--------|-----------|----------------|
-| **Processing** | One at a time | Multiple simultaneous |
-| **Approval** | Manual queue required | Auto-approve |
-| **Workers** | 1 process | 5+ processes |
-| **Scaling** | Fixed | Dynamic |
-| **State** | In-memory | Persistent (Redis) |
-| **Recovery** | Lost on crash | Survives restarts |
-| **API Endpoint** | `/api/process` | `/api/process_redis` |
+| Aspect           | Sequential            | Redis Parallel        |
+| ---------------- | --------------------- | --------------------- |
+| **Processing**   | One at a time         | Multiple simultaneous |
+| **Approval**     | Manual queue required | Auto-approve          |
+| **Workers**      | 1 process             | 5+ processes          |
+| **Scaling**      | Fixed                 | Dynamic               |
+| **State**        | In-memory             | Persistent (Redis)    |
+| **Recovery**     | Lost on crash         | Survives restarts     |
+| **API Endpoint** | `/api/process`        | `/api/process_redis`  |
 
 ## Testing Plan
 
 ### Phase 1: Setup and Verification
+
 1. Install Redis server
 2. Install Python dependencies (`pip install -r requirements.txt`)
 3. Verify Redis connection (`redis-cli ping`)
@@ -168,12 +176,15 @@ Based on baseline metrics:
 5. Check health endpoint (`GET /api/health`)
 
 ### Phase 2: Worker Deployment
+
 1. Start 5 workers (`.\start_workers.ps1 5`)
 2. Verify worker connections in logs
 3. Check worker stats (`GET /api/worker_stats`)
 
 ### Phase 3: Comparison Test
+
 1. Use same 5 domains from baseline:
+
    - firesand.co.uk
    - s8080.com
    - emagine.org
@@ -181,11 +192,13 @@ Based on baseline metrics:
    - bcs365.co.uk
 
 2. Start monitoring:
+
    ```powershell
    python multi_worker_monitor.py 600
    ```
 
 3. Submit job:
+
    ```powershell
    $domains = @("firesand.co.uk", "s8080.com", "emagine.org", "bespokesupportsolutions.co.uk", "bcs365.co.uk")
    $body = @{ domains = $domains } | ConvertTo-Json
@@ -194,6 +207,7 @@ Based on baseline metrics:
    ```
 
 4. Capture metrics:
+
    ```powershell
    python capture_metrics.py $jobId
    ```
@@ -201,6 +215,7 @@ Based on baseline metrics:
 5. Generate comparison report
 
 ### Phase 4: Analysis
+
 - Compare timing: Sequential (5m 30s) vs Parallel (~2m)
 - Compare resource usage: Single process vs Multi-worker
 - Calculate speedup factor
@@ -209,16 +224,19 @@ Based on baseline metrics:
 ## Next Steps
 
 1. **Test Redis Implementation**:
+
    - Install Redis
    - Run comparison test
    - Generate performance report
 
 2. **Optimize Based on Results**:
+
    - Tune worker count (try 3, 5, 8 workers)
    - Adjust Redis configuration if needed
    - Profile bottlenecks
 
 3. **Scale to Production**:
+
    - Test with 50-100 domains
    - Add error recovery mechanisms
    - Implement Redis persistence
@@ -232,6 +250,7 @@ Based on baseline metrics:
 ## Files Changed
 
 ### New Files (7)
+
 - `redis_manager.py` - Queue management
 - `redis_worker.py` - Worker process
 - `multi_worker_monitor.py` - Multi-process monitoring
@@ -241,6 +260,7 @@ Based on baseline metrics:
 - `REDIS_IMPLEMENTATION_SUMMARY.md` - This file
 
 ### Modified Files (2)
+
 - `api_server.py` - Added Redis endpoints
 - `requirements.txt` - Added dependencies
 
@@ -284,6 +304,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/health"
 ## Success Criteria
 
 ✅ **Implementation Complete**
+
 - All code files created and tested
 - API endpoints functional
 - Worker processes operational
@@ -291,12 +312,14 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/health"
 - Documentation comprehensive
 
 ⏳ **Pending Testing**
+
 - Redis server installation
 - End-to-end comparison test
 - Performance metrics collection
 - Report generation
 
 🎯 **Target Results**
+
 - 3-5x faster than sequential
 - 80%+ success rate maintained
 - Stable worker processes

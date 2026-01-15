@@ -40,17 +40,21 @@ The Redis implementation enables **parallel processing** of domains across multi
 ### 1. Install Redis Server
 
 #### Windows
+
 Download Redis for Windows from:
+
 - **GitHub Release**: https://github.com/microsoftarchive/redis/releases
 - Download `Redis-x64-3.0.504.msi` (or latest)
 - Install and start Redis service
 
 Or use Docker:
+
 ```powershell
 docker run -d -p 6379:6379 --name redis redis:latest
 ```
 
 #### Linux/macOS
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install redis-server
@@ -68,6 +72,7 @@ pip install -r requirements.txt
 ```
 
 The updated `requirements.txt` includes:
+
 - `redis` - Python Redis client
 - `rq` - Redis Queue library
 - Other existing dependencies
@@ -75,12 +80,14 @@ The updated `requirements.txt` includes:
 ### 3. Verify Redis Connection
 
 Check if Redis is running:
+
 ```powershell
 redis-cli ping
 # Should return: PONG
 ```
 
 Or test via Python:
+
 ```python
 import redis
 r = redis.Redis(host='localhost', port=6379, db=0)
@@ -92,6 +99,7 @@ print(r.ping())  # Should print: True
 ### Starting the System
 
 #### 1. Start Redis Server (if not already running)
+
 ```powershell
 # If installed as service, it should auto-start
 # Otherwise start manually:
@@ -99,24 +107,30 @@ redis-server
 ```
 
 #### 2. Start API Server
+
 ```powershell
 python api_server.py
 ```
+
 The server will check Redis connectivity and enable parallel processing if available.
 
 #### 3. Start Worker Pool
+
 Start 5 workers (recommended):
+
 ```powershell
 .\start_workers.ps1 5
 ```
 
 Or on Linux/macOS:
+
 ```bash
 chmod +x start_workers.sh
 ./start_workers.sh 5
 ```
 
 You should see:
+
 ```
 Starting 5 Redis workers...
 [1/5] Starting worker-1...
@@ -134,6 +148,7 @@ Monitoring worker output (Ctrl+C to stop)...
 ### Submitting Jobs
 
 #### Via API (Parallel Processing)
+
 ```powershell
 # Submit domains for parallel processing
 $domains = @("firesand.co.uk", "s8080.com", "emagine.org", "bespokesupportsolutions.co.uk", "bcs365.co.uk")
@@ -149,6 +164,7 @@ Write-Host "Mode: $($response.mode)"
 ```
 
 #### Via UI
+
 1. Go to http://localhost:3000
 2. Enter domains (space or comma separated)
 3. System automatically uses Redis if available
@@ -157,6 +173,7 @@ Write-Host "Mode: $($response.mode)"
 ### Monitoring
 
 #### Check Job Status
+
 ```powershell
 $jobId = "your-job-id-here"
 $status = Invoke-RestMethod -Uri "http://localhost:8000/api/status/$jobId"
@@ -164,6 +181,7 @@ $status | ConvertTo-Json
 ```
 
 Response includes:
+
 - `status`: "pending", "processing", or "completed"
 - `total`: Total domains
 - `completed`: Successfully processed domains
@@ -172,18 +190,22 @@ Response includes:
 - `approved_data`: Extracted data
 
 #### Check Worker Stats
+
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8000/api/worker_stats"
 ```
 
 #### Monitor Resource Usage
+
 Start monitoring before submitting job:
+
 ```powershell
 # Monitor all workers
 python multi_worker_monitor.py 600  # Monitor for 600 seconds
 ```
 
 Output shows aggregate metrics:
+
 - Worker count
 - Total CPU usage
 - Total memory usage
@@ -192,11 +214,13 @@ Output shows aggregate metrics:
 ## Performance Comparison
 
 ### Sequential Processing (Baseline)
+
 - **Mode**: Single-threaded
 - **Throughput**: ~0.727 domains/minute
 - **5 domains**: 5m 30s
 
 ### Redis Parallel Processing (5 Workers)
+
 - **Mode**: Multi-process parallel
 - **Expected Throughput**: 2.5-3.5 domains/minute
 - **Expected Time for 5 domains**: ~2 minutes
@@ -207,6 +231,7 @@ Output shows aggregate metrics:
 ### Adjust Worker Count
 
 Based on your system resources:
+
 - **2-4 cores**: 2-3 workers
 - **4-8 cores**: 3-5 workers
 - **8+ cores**: 5-8 workers
@@ -216,6 +241,7 @@ More workers = higher parallelization but more memory usage.
 ### Redis Configuration
 
 Edit Redis config if needed (`redis.conf`):
+
 ```
 # Max memory
 maxmemory 256mb
@@ -233,12 +259,15 @@ save 300 10
 **Symptom**: "Redis not available" error
 
 **Solutions**:
+
 1. Check Redis is running:
+
    ```powershell
    redis-cli ping
    ```
 
 2. Check port 6379 is not blocked:
+
    ```powershell
    netstat -an | findstr "6379"
    ```
@@ -255,12 +284,15 @@ save 300 10
 **Symptom**: Workers start but don't process domains
 
 **Solutions**:
+
 1. Check workers are connected:
+
    ```powershell
    Invoke-RestMethod -Uri "http://localhost:8000/api/health"
    ```
 
 2. Check Redis queue:
+
    ```powershell
    redis-cli
    > LLEN domain:pending
@@ -276,7 +308,9 @@ save 300 10
 **Symptom**: System slows down with many workers
 
 **Solutions**:
+
 1. Reduce worker count:
+
    ```powershell
    .\start_workers.ps1 3  # Use 3 instead of 5
    ```
@@ -288,12 +322,14 @@ save 300 10
 ## API Endpoints
 
 ### Parallel Processing
+
 - `POST /api/process_redis` - Submit job for parallel processing
 - `GET /api/status/{job_id}` - Get job status (supports both modes)
 - `GET /api/health` - Check Redis connectivity
 - `GET /api/worker_stats` - Get worker statistics
 
 ### Sequential Processing (Fallback)
+
 - `POST /api/process` - Submit job for sequential processing
 
 ## Comparison Testing
@@ -301,6 +337,7 @@ save 300 10
 To benchmark sequential vs parallel:
 
 ### 1. Run Baseline (Sequential)
+
 ```powershell
 # Start API server
 python api_server.py
@@ -313,6 +350,7 @@ python capture_metrics.py <job_id>
 ```
 
 ### 2. Run Redis Test (Parallel)
+
 ```powershell
 # Start Redis
 redis-server
@@ -331,6 +369,7 @@ python capture_metrics.py <job_id>
 ```
 
 ### 3. Compare Results
+
 - Sequential: `baseline_results_*.md`
 - Parallel: `redis_results_*.md`
 - Resource usage: CSVs with timestamps
@@ -340,18 +379,21 @@ python capture_metrics.py <job_id>
 ### Components
 
 #### 1. Redis Manager (`redis_manager.py`)
+
 - Manages Redis connection
 - Creates and tracks jobs
 - Distributes tasks to workers
 - Collects results
 
 #### 2. Redis Worker (`redis_worker.py`)
+
 - Polls Redis queue for tasks
 - Processes domains using agent_graph
 - Saves results to database
 - Auto-approves extracted data
 
 #### 3. API Server (`api_server.py`)
+
 - Provides REST endpoints
 - Supports both sequential and parallel modes
 - Auto-detects Redis availability
@@ -368,14 +410,14 @@ python capture_metrics.py <job_id>
 
 ### Key Differences from Sequential Mode
 
-| Aspect | Sequential | Redis Parallel |
-|--------|-----------|----------------|
-| **Processing** | One domain at a time | Multiple domains simultaneously |
-| **Approval** | Manual queue | Auto-approve |
-| **Scaling** | Fixed (single process) | Dynamic (multiple workers) |
-| **State** | In-memory (api_server) | Persistent (Redis) |
-| **Recovery** | Lost on crash | Survives restarts |
-| **Monitoring** | Single process | Multi-process aggregation |
+| Aspect         | Sequential             | Redis Parallel                  |
+| -------------- | ---------------------- | ------------------------------- |
+| **Processing** | One domain at a time   | Multiple domains simultaneously |
+| **Approval**   | Manual queue           | Auto-approve                    |
+| **Scaling**    | Fixed (single process) | Dynamic (multiple workers)      |
+| **State**      | In-memory (api_server) | Persistent (Redis)              |
+| **Recovery**   | Lost on crash          | Survives restarts               |
+| **Monitoring** | Single process         | Multi-process aggregation       |
 
 ## Best Practices
 
@@ -391,17 +433,20 @@ python capture_metrics.py <job_id>
 For production use:
 
 1. **Redis Security**:
+
    ```conf
    requirepass your_strong_password
    bind 127.0.0.1
    ```
 
 2. **Worker Management**:
+
    - Use process supervisor (systemd, supervisor, PM2)
    - Auto-restart on failure
    - Log rotation
 
 3. **Load Balancing**:
+
    - Deploy multiple worker nodes
    - Use Redis Cluster for high availability
    - Monitor queue depth
@@ -414,6 +459,7 @@ For production use:
 ## Next Steps
 
 After setup:
+
 1. Run comparison test with same 5 domains
 2. Generate performance report
 3. Tune worker count based on results
@@ -422,6 +468,7 @@ After setup:
 ---
 
 **Need Help?**
+
 - Check logs in worker terminals
 - Use `GET /api/health` to diagnose
 - Review `BASELINE_PERFORMANCE_REPORT.md` for comparison metrics

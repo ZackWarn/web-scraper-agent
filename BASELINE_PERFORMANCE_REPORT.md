@@ -6,6 +6,7 @@
 **Job ID**: `c4f25764-3ac1-47a1-ae53-f5a927805f12`  
 **Processing Mode**: Sequential (Single-threaded)  
 **Test Domains**: 5 domains
+
 - firesand.co.uk
 - s8080.com
 - emagine.org
@@ -19,6 +20,7 @@
 This baseline test measured the performance of the sequential, single-threaded domain processing pipeline. The system processed 5 domains with an overall **80% success rate** (4 successful, 1 failed). Total extraction time was **5 minutes 30 seconds**, with an average of **1 minute 22 seconds per successful domain**.
 
 ### Key Findings:
+
 - ✅ **4/5 domains** successfully extracted and approved
 - ❌ **1 domain failed** due to SSL certificate verification error
 - ⏱️ **Total extraction duration**: 5 minutes 30 seconds (10:13:00 - 10:18:30)
@@ -32,13 +34,13 @@ This baseline test measured the performance of the sequential, single-threaded d
 
 ### Per-Domain Breakdown
 
-| Domain | Start Time | End Time | Duration | Status | Notes |
-|--------|-----------|----------|----------|--------|-------|
-| firesand.co.uk | 10:13:00 | 10:14:22 | **1m 22s** | ✅ Success | Queued for approval |
-| s8080.com | 10:14:22 | 10:15:40 | **1m 18s** | ✅ Success | Queued for approval |
-| emagine.org | 10:15:40 | 10:15:41 | **< 1s** | ❌ Failed | SSL cert verification error |
-| bespokesupportsolutions.co.uk | 10:15:41 | 10:17:00 | **1m 19s** | ✅ Success | Queued for approval |
-| bcs365.co.uk | 10:17:00 | 10:18:30 | **1m 30s** | ✅ Success | Queued for approval |
+| Domain                        | Start Time | End Time | Duration   | Status     | Notes                       |
+| ----------------------------- | ---------- | -------- | ---------- | ---------- | --------------------------- |
+| firesand.co.uk                | 10:13:00   | 10:14:22 | **1m 22s** | ✅ Success | Queued for approval         |
+| s8080.com                     | 10:14:22   | 10:15:40 | **1m 18s** | ✅ Success | Queued for approval         |
+| emagine.org                   | 10:15:40   | 10:15:41 | **< 1s**   | ❌ Failed  | SSL cert verification error |
+| bespokesupportsolutions.co.uk | 10:15:41   | 10:17:00 | **1m 19s** | ✅ Success | Queued for approval         |
+| bcs365.co.uk                  | 10:17:00   | 10:18:30 | **1m 30s** | ✅ Success | Queued for approval         |
 
 ### Timeline Visualization
 
@@ -63,18 +65,18 @@ Total Duration: 6m 16s
 
 ### Processing Statistics
 
-| Metric | Value |
-|--------|-------|
-| **Total domains** | 5 |
-| **Successfully extracted** | 4 (80%) |
-| **Failed extractions** | 1 (20%) |
-| **Extraction time** | 5m 30s (330 seconds) |
-| **Approval time** | 6 seconds (manual) |
-| **Total end-to-end time** | 6m 16s (376 seconds) |
+| Metric                            | Value                  |
+| --------------------------------- | ---------------------- |
+| **Total domains**                 | 5                      |
+| **Successfully extracted**        | 4 (80%)                |
+| **Failed extractions**            | 1 (20%)                |
+| **Extraction time**               | 5m 30s (330 seconds)   |
+| **Approval time**                 | 6 seconds (manual)     |
+| **Total end-to-end time**         | 6m 16s (376 seconds)   |
 | **Average per successful domain** | 82.5 seconds (~1m 22s) |
-| **Throughput** | 0.727 domains/minute |
-| **Fastest domain** | s8080.com (1m 18s) |
-| **Slowest domain** | bcs365.co.uk (1m 30s) |
+| **Throughput**                    | 0.727 domains/minute   |
+| **Fastest domain**                | s8080.com (1m 18s)     |
+| **Slowest domain**                | bcs365.co.uk (1m 30s)  |
 
 ---
 
@@ -86,10 +88,10 @@ Total Duration: 6m 16s
 **Sample Rate**: 1 second intervals  
 **Total Samples**: 208 data points
 
-| Resource | Peak Usage | Average Usage | Notes |
-|----------|-----------|---------------|-------|
-| **CPU** | 0.0% | 0.0% | ⚠️ Anomaly detected |
-| **Memory** | 4.37 MB | 4.37 MB | ⚠️ Anomaly detected |
+| Resource   | Peak Usage | Average Usage | Notes               |
+| ---------- | ---------- | ------------- | ------------------- |
+| **CPU**    | 0.0%       | 0.0%          | ⚠️ Anomaly detected |
+| **Memory** | 4.37 MB    | 4.37 MB       | ⚠️ Anomaly detected |
 
 ### Analysis Notes
 
@@ -100,12 +102,14 @@ Total Duration: 6m 16s
 3. **Actual resource usage unknown**: The true CPU and memory consumption during domain processing was not captured
 
 **Expected behavior**: During LLM inference and web scraping, we would expect to see:
+
 - CPU spikes during LLM inference (llama3.2:3b model)
 - CPU activity during HTML parsing and data extraction
 - Memory usage of 200-500 MB for model context and application state
 - Variable CPU ranging from 20-80% during active processing
 
 ### Recommendations for Future Monitoring:
+
 - Use PID-based monitoring instead of process name matching
 - Monitor the `uvicorn` or `python api_server.py` process specifically
 - Add process command-line validation to ensure correct process is tracked
@@ -120,24 +124,26 @@ Total Duration: 6m 16s
 The non-blocking approval queue feature worked as designed:
 
 ✅ **Successful behaviors**:
+
 - All 4 successful extractions were queued immediately without blocking
 - Subsequent domains began processing instantly after previous domain completed
 - No wait time between domain completions and next domain start
 - Manual approval process occurred after all extractions completed
 
 📊 **Queue states**:
+
 - Peak pending approvals: 4 domains (at 10:18:30)
 - Approval processing time: 6 seconds for 4 domains (1.5s average per approval)
 - Zero rejections: All queued domains were approved
 
 ### Comparison: Blocking vs Non-Blocking
 
-| Metric | Old (Blocking) | New (Non-Blocking) | Improvement |
-|--------|---------------|-------------------|-------------|
-| Wait time per approval | ~30-60s manual wait | 0s (parallel queue) | **100% reduction** |
-| Total approval overhead | 2-4 minutes | 6 seconds | **95% reduction** |
-| Domain processing | Sequential + blocked | Sequential + continuous | **Eliminates blocking** |
-| User experience | Must approve during processing | Batch approve at end | **Better UX** |
+| Metric                  | Old (Blocking)                 | New (Non-Blocking)      | Improvement             |
+| ----------------------- | ------------------------------ | ----------------------- | ----------------------- |
+| Wait time per approval  | ~30-60s manual wait            | 0s (parallel queue)     | **100% reduction**      |
+| Total approval overhead | 2-4 minutes                    | 6 seconds               | **95% reduction**       |
+| Domain processing       | Sequential + blocked           | Sequential + continuous | **Eliminates blocking** |
+| User experience         | Must approve during processing | Batch approve at end    | **Better UX**           |
 
 ---
 
@@ -146,11 +152,13 @@ The non-blocking approval queue feature worked as designed:
 ### Successful Extractions (4/5 domains)
 
 #### firesand.co.uk ✅
+
 **Company**: Firesand  
 **Industry**: Information Technology / Professional Services  
 **SIC**: 62020 - Information technology consultancy
 
 **Data Completeness**:
+
 - ✅ Company name, email, LinkedIn
 - ✅ Industry classification (sector, industry, SIC)
 - ✅ Long & short descriptions
@@ -164,11 +172,13 @@ The non-blocking approval queue feature worked as designed:
 ---
 
 #### s8080.com ✅
+
 **Company**: S8080 Ltd  
 **Industry**: Information Technology / Professional Services  
 **SIC**: 62020 - Information technology consultancy
 
 **Data Completeness**:
+
 - ✅ Company name, email, LinkedIn, full address
 - ✅ Industry classification
 - ✅ Long & short descriptions
@@ -181,11 +191,13 @@ The non-blocking approval queue feature worked as designed:
 ---
 
 #### bespokesupportsolutions.co.uk ✅
+
 **Company**: Bespoke Support Solutions  
 **Industry**: Information Technology / Professional Services  
 **SIC**: 62020 - Information technology consultancy
 
 **Data Completeness**:
+
 - ✅ Company name, email, full address
 - ✅ Industry classification
 - ✅ Long & short descriptions
@@ -198,11 +210,13 @@ The non-blocking approval queue feature worked as designed:
 ---
 
 #### bcs365.co.uk ✅
+
 **Company**: BCS Ltd  
 **Industry**: IT Services  
 **SIC**: 62020
 
 **Data Completeness**:
+
 - ⚠️ **Minimal extraction**: Only domain, industry, and SIC code captured
 - ❌ Missing: Contact info, descriptions, services, certifications, people
 
@@ -214,6 +228,7 @@ The non-blocking approval queue feature worked as designed:
 ### Failed Extraction (1/5 domains)
 
 #### emagine.org ❌
+
 **Error**: `[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1147)`  
 **Duration**: < 1 second (immediate failure)
 
@@ -226,6 +241,7 @@ The non-blocking approval queue feature worked as designed:
 ## System Architecture Observations
 
 ### Current Pipeline
+
 ```
 Input → Domain Normalization → Sequential Processing → LLM Extraction → Queue → Manual Approval → Database Save
                                         ↓
@@ -235,11 +251,13 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ### Bottlenecks Identified
 
 1. **Sequential Processing**: Domains processed one at a time, no parallelization
+
    - Each domain averages 82 seconds
    - Total time = sum of individual times (no overlap)
    - **Impact**: Linear scaling with domain count
 
 2. **LLM Inference**: Each domain requires LLM call (likely the slowest step)
+
    - Estimated 40-60 seconds per domain for LLM processing
    - Running on Ollama with llama3.2:3b model
    - **Impact**: Significant per-domain overhead
@@ -252,6 +270,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ### Optimization Opportunities
 
 **High Impact**:
+
 - ✅ **Already implemented**: Non-blocking approval queue (completed)
 - 🎯 **Next priority**: Redis-based parallel worker pool
   - Expected improvement: 3-5x throughput increase
@@ -259,11 +278,13 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
   - Each worker handles separate domain concurrently
 
 **Medium Impact**:
+
 - Implement retry logic for transient failures (SSL, network)
 - Add domain batching for better resource utilization
 - Cache frequently accessed data (logos, social media lookups)
 
 **Low Impact**:
+
 - Optimize LLM prompts for faster inference
 - Reduce HTML parsing overhead
 - Implement domain pre-validation
@@ -274,16 +295,17 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 
 ### Baseline Targets vs Actual
 
-| Target | Expected | Actual | Status |
-|--------|----------|--------|--------|
-| Success rate | 90%+ | 80% (4/5) | ⚠️ Below target |
-| Avg time/domain | 60-90s | 82.5s | ✅ Within range |
-| Queue blocking | 0s | 0s | ✅ Met target |
-| System stability | No crashes | Stable | ✅ Met target |
+| Target           | Expected   | Actual    | Status          |
+| ---------------- | ---------- | --------- | --------------- |
+| Success rate     | 90%+       | 80% (4/5) | ⚠️ Below target |
+| Avg time/domain  | 60-90s     | 82.5s     | ✅ Within range |
+| Queue blocking   | 0s         | 0s        | ✅ Met target   |
+| System stability | No crashes | Stable    | ✅ Met target   |
 
 ### Success Rate Analysis
 
 **80% success rate** is acceptable for baseline but room for improvement:
+
 - 1 SSL certificate failure (20% of failures)
 - 1 incomplete extraction (bcs365.co.uk had minimal data)
 - Recommend adding error handling and retry mechanisms
@@ -293,17 +315,19 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ## Conclusions
 
 ### Strengths
+
 ✅ **Non-blocking queue works perfectly**: No waiting between domain processing and approval  
 ✅ **Consistent performance**: Average 82.5s per domain with low variance (78-90s range)  
 ✅ **High data quality**: 3/4 successful extractions had comprehensive data (7-8/10 scores)  
 ✅ **Stable system**: No crashes or unexpected failures  
-✅ **Good logging**: Clear visibility into each processing stage  
+✅ **Good logging**: Clear visibility into each processing stage
 
 ### Weaknesses
+
 ❌ **Sequential processing bottleneck**: Only one domain at a time  
 ❌ **SSL error handling**: No fallback for certificate validation failures  
 ❌ **Resource monitoring failed**: Unable to capture actual CPU/memory usage  
-❌ **Incomplete extraction**: bcs365.co.uk had minimal data capture  
+❌ **Incomplete extraction**: bcs365.co.uk had minimal data capture
 
 ### Performance Baseline Established
 
@@ -320,6 +344,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 **Goal**: Increase throughput from 0.727 to 2.5+ domains/minute
 
 **Plan**:
+
 1. Create Redis queue for domain distribution
 2. Implement 5 parallel worker processes
 3. Add worker coordination and load balancing
@@ -327,6 +352,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 5. Run comparison test with same 5 domains
 
 **Expected Results**:
+
 - Total time: ~2 minutes (vs 5m 30s baseline)
 - Parallel processing of multiple domains
 - Higher CPU utilization (distributed across workers)
@@ -335,6 +361,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ### Improved Monitoring
 
 **Fix resource tracking**:
+
 - Monitor correct process by PID
 - Track per-worker resource usage
 - Capture system-wide metrics
@@ -345,6 +372,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ## Appendix: Raw Data
 
 ### Job Status Response
+
 ```json
 {
   "status": "completed",
@@ -358,6 +386,7 @@ Input → Domain Normalization → Sequential Processing → LLM Extraction → 
 ```
 
 ### Log Timeline
+
 ```
 10:13:00 - Starting to process 5 domains
 10:13:00 - Scraping & Extracting firesand.co.uk...
