@@ -119,15 +119,23 @@ def process_domains_background(job_id: str, domains: List[str]):
         processing_jobs[job_id]["current_domain"] = domain
         try:
             add_log("info", f"🔍 Scraping & Extracting {domain}...")
-            
+
             result = process_domain(domain, skip_save=True)
-            
+
             if result.get("extracted_data") and result["status"] == "extracted":
-                processing_jobs[job_id]["pending_approvals"][domain] = result["extracted_data"]
-                add_log("info", f"⏳ {domain} extracted - queued for approval (non-blocking)")
+                processing_jobs[job_id]["pending_approvals"][domain] = result[
+                    "extracted_data"
+                ]
+                add_log(
+                    "info",
+                    f"⏳ {domain} extracted - queued for approval (non-blocking)",
+                )
             else:
                 processing_jobs[job_id]["failed"] += 1
-                add_log("error", f"❌ Failed to extract {domain}: {result.get('error', 'Unknown error')}")
+                add_log(
+                    "error",
+                    f"❌ Failed to extract {domain}: {result.get('error', 'Unknown error')}",
+                )
 
         except Exception as e:
             logging.error(f"Error processing {domain}: {e}")
@@ -136,7 +144,7 @@ def process_domains_background(job_id: str, domains: List[str]):
 
     processing_jobs[job_id]["status"] = "waiting_approval"
     processing_jobs[job_id]["current_domain"] = None
-    
+
     pending_count = len(processing_jobs[job_id]["pending_approvals"])
     add_log(
         "success",
@@ -330,42 +338,54 @@ async def accept_extracted(input_data: AcceptInput):
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = processing_jobs[job_id]
-    
+
     if domain not in job.get("pending_approvals", {}):
-        raise HTTPException(status_code=404, detail=f"Domain {domain} not in pending approvals")
+        raise HTTPException(
+            status_code=404, detail=f"Domain {domain} not in pending approvals"
+        )
 
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%H:%M:%S")
-    
+
     if input_data.accept:
         extracted_data = job["pending_approvals"].pop(domain)
         try:
             save_extracted_data(domain, extracted_data)
             job["approved_data"][domain] = extracted_data
             job["completed"] += 1
-            job["logs"].append({
-                "timestamp": timestamp,
-                "level": "success",
-                "message": f"✅ Approved and saved {domain}",
-            })
+            job["logs"].append(
+                {
+                    "timestamp": timestamp,
+                    "level": "success",
+                    "message": f"✅ Approved and saved {domain}",
+                }
+            )
         except Exception as e:
             job["failed"] += 1
-            job["logs"].append({
-                "timestamp": timestamp,
-                "level": "error",
-                "message": f"❌ Failed to save {domain}: {str(e)}",
-            })
+            job["logs"].append(
+                {
+                    "timestamp": timestamp,
+                    "level": "error",
+                    "message": f"❌ Failed to save {domain}: {str(e)}",
+                }
+            )
     else:
         job["pending_approvals"].pop(domain)
         job["rejected_domains"].append(domain)
         job["completed"] += 1
-        job["logs"].append({
-            "timestamp": timestamp,
-            "level": "warning",
-            "message": f"🚫 Rejected {domain}",
-        })
-    
-    if len(job["pending_approvals"]) == 0 and job["completed"] + job["failed"] >= job["total"]:
+        job["logs"].append(
+            {
+                "timestamp": timestamp,
+                "level": "warning",
+                "message": f"🚫 Rejected {domain}",
+            }
+        )
+
+    if (
+        len(job["pending_approvals"]) == 0
+        and job["completed"] + job["failed"] >= job["total"]
+    ):
         job["status"] = "completed"
 
     return {"job_id": job_id, "domain": domain, "accepted": input_data.accept}
