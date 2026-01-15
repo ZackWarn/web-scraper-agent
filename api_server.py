@@ -18,9 +18,22 @@ from agent_graph import process_domain
 import db_new
 from worker_new import save_extracted_data
 import time
+from redis_manager import get_redis_manager
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="Company Intelligence API")
+
+# Check Redis availability at startup
+REDIS_AVAILABLE = False
+try:
+    redis_manager = get_redis_manager()
+    REDIS_AVAILABLE = redis_manager.ping()
+    if REDIS_AVAILABLE:
+        logging.info("✓ Redis connected - parallel processing available")
+    else:
+        logging.warning("⚠ Redis not available - using sequential processing only")
+except Exception as e:
+    logging.warning(f"⚠ Redis connection failed: {e} - using sequential processing only")
 
 # CORS setup for Next.js
 app.add_middleware(
@@ -161,7 +174,7 @@ async def startup_event():
 
 @app.post("/api/process")
 async def start_processing(input_data: DomainInput, background_tasks: BackgroundTasks):
-    """Start processing domains"""
+    """Start processing domains (sequential mode)"""
     import uuid
 
     job_id = str(uuid.uuid4())
@@ -170,10 +183,35 @@ async def start_processing(input_data: DomainInput, background_tasks: Background
     if not domains:
         raise HTTPException(status_code=400, detail="No valid domains provided")
 
-    # Start background processing
+    # Start background processing (sequential)
     background_tasks.add_task(process_domains_background, job_id, domains)
 
-    return {"job_id": job_id, "message": "Processing started", "count": len(domains)}
+    return {"job_id": job_id, "message": "Processing started (sequential)", "count": len(domains), "mode": "sequential"}
+
+
+@app.post("/api/process_redis")
+async def start_processing_redis(input_data: DomainInput):
+    """Start processing domains using Redis workers (parallel mode)"""
+    if not REDIS_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Redis not available. Make sure Redis server is running."
+        )
+    
+    domains = normalize_domains(input_data.domains)
+    if not domains:
+        raise HTTPException(status_code=400, detail="No valid domains provided")
+    
+    # Create job in Redis
+    redis_manager = get_redis_manager()
+    job_id = redis_manager.create_job(domains)
+    
+    return {
+        "job_id": job_id, 
+        "message": "Processing started (parallel with Redis)", 
+        "count": len(domains),
+        "mode": "redis_parallel"
+    }
 
 
 # Utilities to read domains from a SQLite database
@@ -310,7 +348,54 @@ async def start_processing_csv(
 
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
-    """Get processing status with approval queue info."""
+    """Get processing status with approval queue info.
+    Supports both sequential and Redis-based jobs."""
+    
+    # Check if it's a Redis job first
+    if REDIS_AVAILABLE:
+        redis_manager = get_redis_manager()
+        redis_job = redis_manager.get_job_status(job_id)
+        
+        if redis_job:
+            # Convert Redis job format to API format
+            results = redis_job.get("results", {})
+            successful = sum(1 for r in results.values() if r.get("success"))
+            failed = redis_job["failed"]
+            
+            # Build logs from results
+            logs = []
+            for domain, result in results.items():
+                if result.get("success"):
+                    logs.append({
+                        "timestamp": result["completed_at"][-8:] if result.get("completed_at") else "",
+                        "level": "success",
+                        "message": f"✅ {domain} processed successfully"
+                    })
+                else:
+                    logs.append({
+                        "timestamp": result["completed_at"][-8:] if result.get("completed_at") else "",
+                        "level": "error",
+                        "message": f"❌ {domain} failed: {result.get('error', 'Unknown error')}"
+                    })
+            
+            return {
+                "status": redis_job["status"],
+                "total": redis_job["total"],
+                "completed": successful,
+                "failed": failed,
+                "current_domain": None,
+                "logs": logs,
+                "pending_approvals": {},  # Redis workers auto-approve
+                "approved_data": {d: r["data"] for d, r in results.items() if r.get("success")},
+                "rejected_domains": [],
+                "pending_count": 0,
+                "approved_count": successful,
+                "rejected_count": 0,
+                "mode": "redis_parallel",
+                "metrics": redis_job.get("metrics", {})
+            }
+    
+    # Fall back to sequential job
     if job_id not in processing_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -320,6 +405,7 @@ async def get_status(job_id: str):
         "pending_count": len(job.get("pending_approvals", {})),
         "approved_count": len(job.get("approved_data", {})),
         "rejected_count": len(job.get("rejected_domains", [])),
+        "mode": "sequential"
     }
 
 
@@ -506,6 +592,41 @@ async def get_graph_info():
             {"source": "save", "target": "end", "label": "complete"},
         ],
     }
+
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint with Redis status"""
+    redis_status = "disconnected"
+    queue_size = 0
+    
+    if REDIS_AVAILABLE:
+        try:
+            redis_manager = get_redis_manager()
+            if redis_manager.ping():
+                redis_status = "connected"
+                queue_size = redis_manager.get_queue_size()
+        except:
+            redis_status = "error"
+    
+    return {
+        "status": "healthy",
+        "redis": redis_status,
+        "parallel_processing_available": REDIS_AVAILABLE,
+        "pending_tasks": queue_size
+    }
+
+
+@app.get("/api/worker_stats")
+async def get_worker_stats():
+    """Get Redis worker statistics"""
+    if not REDIS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Redis not available")
+    
+    redis_manager = get_redis_manager()
+    stats = redis_manager.get_worker_stats()
+    
+    return stats
 
 
 @app.get("/api/companies_csv")

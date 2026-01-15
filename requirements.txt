@@ -10,3 +10,8 @@ langchain-openai
 fastapi
 uvicorn
 pydantic
+redis
+rq
+psutil
+tabulate
+requests
