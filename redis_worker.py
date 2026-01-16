@@ -75,9 +75,14 @@ class DomainWorker:
 
             duration = time.time() - start_time
 
-            if result and "error" not in result:
+            status = result.get("status") if result else None
+            failed = (status is None) or status.endswith("failed")
+
+            if result and not failed:
                 # Success - submit result to Redis
-                print(f"[{self.worker_id}] ✅ Extracted {domain} in {duration:.1f}s")
+                print(
+                    f"[{self.worker_id}] ✅ Extracted {domain} in {duration:.1f}s (status={status})"
+                )
 
                 self.redis.submit_result(
                     job_id=job_id, domain=domain, success=True, data=result
@@ -99,6 +104,8 @@ class DomainWorker:
                     if result
                     else "No result returned"
                 )
+                if not error_msg and status:
+                    error_msg = f"Status {status}"
                 print(f"[{self.worker_id}] ❌ Failed {domain}: {error_msg}")
 
                 self.redis.submit_result(
