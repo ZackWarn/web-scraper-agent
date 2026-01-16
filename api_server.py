@@ -3,11 +3,11 @@ FastAPI server for Company Intelligence Agent
 Provides REST API for UI to interact with LangGraph agent
 """
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Set
 import io
 import csv
 import sqlite3
@@ -46,6 +46,42 @@ app.add_middleware(
 
 # Global state for tracking jobs
 processing_jobs = {}
+
+# WebSocket connections manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, Set[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, job_id: str):
+        await websocket.accept()
+        if job_id not in self.active_connections:
+            self.active_connections[job_id] = set()
+        self.active_connections[job_id].add(websocket)
+        logging.info(f"WebSocket connected for job {job_id}")
+
+    def disconnect(self, websocket: WebSocket, job_id: str):
+        if job_id in self.active_connections:
+            self.active_connections[job_id].discard(websocket)
+            if not self.active_connections[job_id]:
+                del self.active_connections[job_id]
+        logging.info(f"WebSocket disconnected for job {job_id}")
+
+    async def broadcast(self, job_id: str, message: dict):
+        """Send message to all connected clients for this job"""
+        if job_id in self.active_connections:
+            dead_connections = set()
+            for connection in self.active_connections[job_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception as e:
+                    logging.error(f"Error sending to websocket: {e}")
+                    dead_connections.add(connection)
+            
+            # Clean up dead connections
+            for connection in dead_connections:
+                self.disconnect(connection, job_id)
+
+manager = ConnectionManager()
 
 
 class DomainInput(BaseModel):
@@ -426,6 +462,54 @@ async def get_status(job_id: str):
         "rejected_count": len(job.get("rejected_domains", [])),
         "mode": "sequential",
     }
+
+
+@app.websocket("/ws/job/{job_id}")
+async def websocket_job_status(websocket: WebSocket, job_id: str):
+    """WebSocket endpoint for real-time job status updates"""
+    await manager.connect(websocket, job_id)
+    
+    try:
+        # Send initial status immediately
+        try:
+            status = await get_status(job_id)
+            await websocket.send_json(status)
+        except HTTPException:
+            await websocket.send_json({"error": "Job not found"})
+            await websocket.close()
+            return
+        
+        # Keep connection alive and send updates
+        while True:
+            try:
+                # Check job status every 500ms
+                await asyncio.sleep(0.5)
+                
+                # Get latest status
+                try:
+                    status = await get_status(job_id)
+                    await websocket.send_json(status)
+                    
+                    # Close connection if job completed
+                    if status.get("status") in ["completed", "waiting_approval"]:
+                        # Send one final update after a short delay
+                        await asyncio.sleep(0.5)
+                        status = await get_status(job_id)
+                        await websocket.send_json(status)
+                        break
+                        
+                except HTTPException:
+                    await websocket.send_json({"error": "Job not found"})
+                    break
+                    
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logging.error(f"WebSocket error for job {job_id}: {e}")
+                break
+                
+    finally:
+        manager.disconnect(websocket, job_id)
 
 
 class AcceptInput(BaseModel):
