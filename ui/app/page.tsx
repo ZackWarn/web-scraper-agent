@@ -122,7 +122,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900">
             🕷️ Web Scraper Agent
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-800">
             Parallel domain processing with Redis workers & real-time WebSocket updates
           </p>
         </div>
@@ -203,7 +203,7 @@ export default function Home() {
         {/* Content */}
         {activeTab === "input" && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Batch Domain Processing</h2>
+            <h2 className="text-2xl font-bold mb-4 text-gray-900">Batch Domain Processing</h2>
             <BatchJobSubmit
               onSubmit={handleBatchSubmit}
               isProcessing={isProcessing}
@@ -216,7 +216,7 @@ export default function Home() {
             )}
 
             <div className="mt-6 border-t pt-6">
-              <h3 className="text-lg font-bold mb-2">Legacy Single Domain Input</h3>
+              <h3 className="text-lg font-bold mb-2 text-gray-900">Legacy Single Domain Input</h3>
               <DomainInput onProcessingStart={handleProcessingStart} apiOnline={apiOnline} />
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function Home() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">Extracted Companies</h2>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-800">
                   Click on a company to view details and hierarchical data.
                 </p>
               </div>
@@ -253,15 +253,15 @@ export default function Home() {
             {stats && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total Companies</p>
+                  <p className="text-sm text-gray-800 font-semibold">Total Companies</p>
                   <p className="text-3xl font-bold text-blue-600">{stats.total_companies || 0}</p>
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total People</p>
+                  <p className="text-sm text-gray-800 font-semibold">Total People</p>
                   <p className="text-3xl font-bold text-green-600">{stats.total_people || 0}</p>
                 </div>
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Total Services</p>
+                  <p className="text-sm text-gray-800 font-semibold">Total Services</p>
                   <p className="text-3xl font-bold text-purple-600">{stats.total_services || 0}</p>
                 </div>
               </div>

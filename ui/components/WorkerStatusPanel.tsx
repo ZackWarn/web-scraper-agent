@@ -34,15 +34,15 @@ export default function WorkerStatusPanel({
   return (
     <div className={`border-2 rounded-lg p-4 transition-all ${statusColors[status]}`}>
       <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-lg">
+        <h3 className="font-bold text-lg text-gray-900">
           {statusIcons[status]} {workerId}
         </h3>
-        <span className="text-sm text-gray-600">{duration}</span>
+        <span className="text-sm text-gray-800 font-semibold">{duration}</span>
       </div>
 
       {domain && (
-        <p className="text-sm text-gray-700 mb-3 truncate" title={domain}>
-          <span className="font-semibold">Domain:</span> {domain}
+        <p className="text-sm text-gray-900 mb-3 truncate" title={domain}>
+          <span className="font-bold">Domain:</span> {domain}
         </p>
       )}
 
@@ -65,7 +65,7 @@ export default function WorkerStatusPanel({
         />
       </div>
 
-      <p className="text-xs text-gray-600 mt-2">{progress}%</p>
+      <p className="text-xs text-gray-800 font-semibold mt-2">{progress}%</p>
     </div>
   );
 }

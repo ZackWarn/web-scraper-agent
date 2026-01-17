@@ -90,7 +90,7 @@ class DomainWorker:
 
                 # Also save to database immediately (auto-approval for Redis workers)
                 try:
-                    save_extracted_data(result, domain)
+                    save_extracted_data(domain, result)
                     print(f"[{self.worker_id}] 💾 Saved {domain} to database")
                 except Exception as db_error:
                     print(

@@ -3,7 +3,15 @@ FastAPI server for Company Intelligence Agent
 Provides REST API for UI to interact with LangGraph agent
 """
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    BackgroundTasks,
+    HTTPException,
+    UploadFile,
+    File,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -47,6 +55,7 @@ app.add_middleware(
 # Global state for tracking jobs
 processing_jobs = {}
 
+
 # WebSocket connections manager
 class ConnectionManager:
     def __init__(self):
@@ -76,10 +85,11 @@ class ConnectionManager:
                 except Exception as e:
                     logging.error(f"Error sending to websocket: {e}")
                     dead_connections.add(connection)
-            
+
             # Clean up dead connections
             for connection in dead_connections:
                 self.disconnect(connection, job_id)
+
 
 manager = ConnectionManager()
 
@@ -468,7 +478,7 @@ async def get_status(job_id: str):
 async def websocket_job_status(websocket: WebSocket, job_id: str):
     """WebSocket endpoint for real-time job status updates"""
     await manager.connect(websocket, job_id)
-    
+
     try:
         # Send initial status immediately
         try:
@@ -478,18 +488,18 @@ async def websocket_job_status(websocket: WebSocket, job_id: str):
             await websocket.send_json({"error": "Job not found"})
             await websocket.close()
             return
-        
+
         # Keep connection alive and send updates
         while True:
             try:
                 # Check job status every 500ms
                 await asyncio.sleep(0.5)
-                
+
                 # Get latest status
                 try:
                     status = await get_status(job_id)
                     await websocket.send_json(status)
-                    
+
                     # Close connection if job completed
                     if status.get("status") in ["completed", "waiting_approval"]:
                         # Send one final update after a short delay
@@ -497,17 +507,17 @@ async def websocket_job_status(websocket: WebSocket, job_id: str):
                         status = await get_status(job_id)
                         await websocket.send_json(status)
                         break
-                        
+
                 except HTTPException:
                     await websocket.send_json({"error": "Job not found"})
                     break
-                    
+
             except WebSocketDisconnect:
                 break
             except Exception as e:
                 logging.error(f"WebSocket error for job {job_id}: {e}")
                 break
-                
+
     finally:
         manager.disconnect(websocket, job_id)
 

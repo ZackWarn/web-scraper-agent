@@ -40,14 +40,14 @@ export default function PerformanceComparison({
               <p className="text-3xl font-bold text-gray-700">{formatTime(sequentialTime)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Throughput</p>
-              <p className="text-lg font-semibold text-gray-600">
+              <p className="text-sm text-gray-800 font-semibold">Throughput</p>
+              <p className="text-lg font-semibold text-gray-900">
                 {(domainCount / (sequentialTime / 60)).toFixed(2)} domains/min
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg per domain</p>
-              <p className="text-lg font-semibold text-gray-600">
+              <p className="text-sm text-gray-800 font-semibold">Avg per domain</p>
+              <p className="text-lg font-semibold text-gray-900">
                 {(sequentialTime / domainCount).toFixed(1)}s
               </p>
             </div>
@@ -70,11 +70,11 @@ export default function PerformanceComparison({
           </h4>
           <div className="space-y-3 mb-4">
             <div>
-              <p className="text-sm text-gray-600">Time</p>
+              <p className="text-sm text-gray-800 font-semibold">Time</p>
               <p className="text-3xl font-bold text-green-600">{formatTime(parallelTime)}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Throughput</p>
+              <p className="text-sm text-gray-800 font-semibold">Throughput</p>
               <p className="text-lg font-semibold text-green-600">
                 {(domainCount / (parallelTime / 60)).toFixed(2)} domains/min
               </p>
@@ -102,19 +102,19 @@ export default function PerformanceComparison({
         <h4 className="font-bold text-lg mb-4 text-center">Performance Gains</h4>
         <div className="grid grid-cols-3 gap-6 text-center">
           <div>
-            <p className="text-gray-600 text-sm mb-1">Speedup Factor</p>
+            <p className="text-gray-800 text-sm font-semibold mb-1">Speedup Factor</p>
             <p className="text-5xl font-bold text-green-600">{speedup.toFixed(1)}x</p>
-            <p className="text-xs text-gray-500 mt-1">times faster</p>
+            <p className="text-xs text-gray-700 mt-1">times faster</p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm mb-1">Time Saved</p>
+            <p className="text-gray-800 text-sm font-semibold mb-1">Time Saved</p>
             <p className="text-5xl font-bold text-blue-600">{Math.floor(timeSaved / 60)}m</p>
-            <p className="text-xs text-gray-500 mt-1">{(timeSaved % 60).toFixed(0)}s saved</p>
+            <p className="text-xs text-gray-700 mt-1">{(timeSaved % 60).toFixed(0)}s saved</p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm mb-1">Efficiency</p>
+            <p className="text-gray-800 text-sm font-semibold mb-1">Efficiency</p>
             <p className="text-5xl font-bold text-orange-600">{percentFaster}%</p>
-            <p className="text-xs text-gray-500 mt-1">reduction</p>
+            <p className="text-xs text-gray-700 mt-1">reduction</p>
           </div>
         </div>
       </div>
@@ -125,8 +125,8 @@ export default function PerformanceComparison({
         <div className="space-y-4">
           <div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-semibold">Sequential</span>
-              <span className="text-sm text-gray-600">{formatTime(sequentialTime)}</span>
+              <span className="text-sm font-semibold text-gray-900">Sequential</span>
+              <span className="text-sm text-gray-800 font-semibold">{formatTime(sequentialTime)}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-6">
               <div
@@ -137,8 +137,8 @@ export default function PerformanceComparison({
           </div>
           <div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-semibold text-green-700">Parallel</span>
-              <span className="text-sm text-green-600">{formatTime(parallelTime)}</span>
+              <span className="text-sm font-semibold text-green-800">Parallel</span>
+              <span className="text-sm text-green-700 font-semibold">{formatTime(parallelTime)}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-6">
               <div
@@ -148,7 +148,7 @@ export default function PerformanceComparison({
             </div>
           </div>
         </div>
-        <p className="text-center text-sm text-gray-600 mt-4">
+        <p className="text-center text-sm text-gray-900 mt-4">
           Parallel processing is <strong className="text-green-600">{speedup.toFixed(1)}x faster</strong> than sequential
         </p>
       </div>

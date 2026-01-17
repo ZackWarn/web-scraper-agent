@@ -164,21 +164,21 @@ export default function ParallelJobMonitor({
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Total Domains</p>
+          <p className="text-sm text-gray-800 font-semibold">Total Domains</p>
           <p className="text-3xl font-bold text-blue-600">
             {jobStats?.total || 0}
           </p>
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Completed</p>
+          <p className="text-sm text-gray-800 font-semibold">Completed</p>
           <p className="text-3xl font-bold text-green-600">
             {jobStats?.completed || 0}
           </p>
         </div>
 
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Total Time</p>
+          <p className="text-sm text-gray-800 font-semibold">Total Time</p>
           <p className="text-3xl font-bold text-orange-600">
             {Math.floor(totalTime / 60)}m {(totalTime % 60).toFixed(0)}s
           </p>

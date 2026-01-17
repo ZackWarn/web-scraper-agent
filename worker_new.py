@@ -18,6 +18,7 @@ from db_new import (
     insert_services,
     update_raw_status,
     insert_metric,
+    get_conn,
 )
 
 # Configure logging (INFO level for better performance)
@@ -217,6 +218,11 @@ def save_extracted_data(domain: str, profile: dict[str, Any]) -> None:
     services = profile.get("services", [])
     if services and isinstance(services, list):
         insert_services(domain, services, "services")
+
+    # Commit all changes
+    conn = get_conn()
+    conn.commit()
+    conn.close()
 
 
 def process_once() -> int:

@@ -43,7 +43,7 @@ export default function BatchJobSubmit({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-bold mb-2">
+        <label className="block text-sm font-bold mb-2 text-gray-900">
           Domains (one per line or comma-separated):
         </label>
         <textarea
@@ -53,7 +53,7 @@ export default function BatchJobSubmit({
           className="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           disabled={isProcessing}
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-800 mt-1">
           {domainCount > 0 ? (
             <>
               <span className="font-bold text-green-600">{domainCount}</span> valid domains detected
@@ -66,11 +66,11 @@ export default function BatchJobSubmit({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-bold mb-2">Processing Mode:</label>
+          <label className="block text-sm font-bold mb-2 text-gray-900">Processing Mode:</label>
           <select
             value={processingMode}
             onChange={(e) => setProcessingMode(e.target.value as "sequential" | "parallel")}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
             disabled={isProcessing}
           >
             <option value="sequential">Sequential (1 worker)</option>
@@ -80,11 +80,11 @@ export default function BatchJobSubmit({
 
         {processingMode === "parallel" && (
           <div>
-            <label className="block text-sm font-bold mb-2">Worker Count:</label>
+            <label className="block text-sm font-bold mb-2 text-gray-900">Worker Count:</label>
             <select
               value={workerCount}
               onChange={(e) => setWorkerCount(Number(e.target.value))}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
               disabled={isProcessing}
             >
               {[3, 5, 10, 15, 20].map((count) => (
@@ -104,7 +104,7 @@ export default function BatchJobSubmit({
           <p className="text-sm font-bold mb-1">
             {processingMode === "parallel" ? "⚡ Parallel Processing" : "⏱️ Sequential Processing"}
           </p>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-900">
             {processingMode === "parallel" ? (
               <>
                 <strong>Estimated time:</strong> ~{estimatedParallel} {estimatedParallel === 1 ? "minute" : "minutes"} with {workerCount} workers
