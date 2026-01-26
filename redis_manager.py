@@ -31,6 +31,7 @@ class RedisQueueManager:
         self.PROCESSING_QUEUE = "domain:processing"
         self.RESULTS_PREFIX = "result:"
         self.JOB_PREFIX = "job:"
+        self.WORKER_PREFIX = "worker:"
 
     def ping(self) -> bool:
         """Check if Redis is available."""
@@ -62,6 +63,7 @@ class RedisQueueManager:
             "started_at": None,
             "completed_at": None,
             "metrics": {"start_time": None, "end_time": None, "domain_timings": {}},
+            "logs": [],
         }
 
         # Store job metadata
@@ -218,6 +220,33 @@ class RedisQueueManager:
             return job.get("results", {})
         return {}
 
+    def add_log(self, job_id: str, level: str, message: str):
+        """
+        Add a log entry to the job.
+
+        Args:
+            job_id: Job identifier
+            level: Log level (info, success, warning, error)
+            message: Log message
+        """
+        job_key = f"{self.JOB_PREFIX}{job_id}"
+        job_json = self.redis_client.get(job_key)
+
+        if job_json:
+            job = json.loads(job_json)
+            
+            log_entry = {
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                "level": level,
+                "message": message,
+            }
+            
+            if "logs" not in job:
+                job["logs"] = []
+            
+            job["logs"].append(log_entry)
+            self.redis_client.set(job_key, json.dumps(job), ex=86400)
+
     def clear_job(self, job_id: str):
         """
         Clean up all data for a job.
@@ -239,6 +268,50 @@ class RedisQueueManager:
     def get_worker_stats(self) -> Dict[str, int]:
         """Get statistics about queue and workers."""
         return {"pending_tasks": self.get_queue_size(), "redis_connected": self.ping()}
+
+    def update_worker_status(self, job_id: str, worker_id: str, domain: str = None, progress: int = 0, status: str = "idle"):
+        """
+        Update worker status for tracking.
+
+        Args:
+            job_id: Job identifier
+            worker_id: Worker identifier
+            domain: Current domain being processed
+            progress: Progress percentage (0-100)
+            status: Worker status (idle, processing, complete)
+        """
+        worker_data = {
+            "worker_id": worker_id,
+            "job_id": job_id,
+            "domain": domain,
+            "progress": progress,
+            "status": status,
+            "updated_at": datetime.now().isoformat(),
+        }
+        
+        worker_key = f"{self.WORKER_PREFIX}{job_id}:{worker_id}"
+        self.redis_client.set(worker_key, json.dumps(worker_data), ex=3600)
+
+    def get_workers_for_job(self, job_id: str) -> List[Dict]:
+        """
+        Get all workers currently working on a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            List of worker status dictionaries
+        """
+        pattern = f"{self.WORKER_PREFIX}{job_id}:*"
+        worker_keys = self.redis_client.keys(pattern)
+        
+        workers = []
+        for key in worker_keys:
+            worker_json = self.redis_client.get(key)
+            if worker_json:
+                workers.append(json.loads(worker_json))
+        
+        return workers
 
 
 # Singleton instance

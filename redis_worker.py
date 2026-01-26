@@ -66,12 +66,20 @@ class DomainWorker:
         domain = task["domain"]
 
         print(f"[{self.worker_id}] 🔍 Processing {domain} (Job: {job_id[:8]}...)")
+        
+        # Update worker status - processing started
+        self.redis.update_worker_status(job_id, self.worker_id, domain, 10, "processing")
+        self.redis.add_log(job_id, "info", f"🔍 Worker {self.worker_id} started processing {domain}")
 
         start_time = time.time()
 
         try:
             # Process domain using agent graph
+            self.redis.update_worker_status(job_id, self.worker_id, domain, 30, "processing")
+            self.redis.add_log(job_id, "info", f"📝 Extracting profile from {domain}...")
             result = process_domain(domain)
+            
+            self.redis.update_worker_status(job_id, self.worker_id, domain, 70, "processing")
 
             duration = time.time() - start_time
 
@@ -83,6 +91,8 @@ class DomainWorker:
                 print(
                     f"[{self.worker_id}] ✅ Extracted {domain} in {duration:.1f}s (status={status})"
                 )
+                self.redis.update_worker_status(job_id, self.worker_id, domain, 90, "processing")
+                self.redis.add_log(job_id, "success", f"✅ {domain} processed successfully in {duration:.2f}s")
 
                 self.redis.submit_result(
                     job_id=job_id, domain=domain, success=True, data=result
@@ -91,8 +101,12 @@ class DomainWorker:
                 # Also save to database immediately (auto-approval for Redis workers)
                 try:
                     save_extracted_data(domain, result)
+                    self.redis.update_worker_status(job_id, self.worker_id, domain, 100, "complete")
+                    self.redis.add_log(job_id, "info", f"💾 Saved {domain} to database")
                     print(f"[{self.worker_id}] 💾 Saved {domain} to database")
                 except Exception as db_error:
+                    self.redis.update_worker_status(job_id, self.worker_id, domain, 100, "complete")
+                    self.redis.add_log(job_id, "warning", f"⚠️ DB save failed for {domain}: {str(db_error)[:100]}")
                     print(
                         f"[{self.worker_id}] ⚠️ DB save failed for {domain}: {db_error}"
                     )
@@ -107,6 +121,8 @@ class DomainWorker:
                 if not error_msg and status:
                     error_msg = f"Status {status}"
                 print(f"[{self.worker_id}] ❌ Failed {domain}: {error_msg}")
+                self.redis.update_worker_status(job_id, self.worker_id, domain, 100, "error")
+                self.redis.add_log(job_id, "error", f"❌ {domain} failed: {error_msg[:100]}")
 
                 self.redis.submit_result(
                     job_id=job_id, domain=domain, success=False, error=error_msg
@@ -118,10 +134,15 @@ class DomainWorker:
             duration = time.time() - start_time
             error_msg = str(e)
             print(f"[{self.worker_id}] ❌ Exception processing {domain}: {error_msg}")
+            self.redis.update_worker_status(job_id, self.worker_id, domain, 100, "error")
+            self.redis.add_log(job_id, "error", f"❌ Exception: {error_msg[:100]}")
 
             self.redis.submit_result(
                 job_id=job_id, domain=domain, success=False, error=error_msg
             )
+        
+        # Reset worker to idle after task completion
+        self.redis.update_worker_status(job_id, self.worker_id, None, 0, "idle")
 
     def stop(self):
         """Stop the worker."""

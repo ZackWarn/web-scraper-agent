@@ -412,9 +412,20 @@ async def get_status(job_id: str):
             results = redis_job.get("results", {})
             successful = sum(1 for r in results.values() if r.get("success"))
             failed = redis_job["failed"]
+            total = redis_job["total"]
+            
+            # Calculate progress percentage
+            progress_percentage = 0
+            if total > 0:
+                progress_percentage = round((successful + failed) / total * 100)
 
-            # Build logs from results
-            logs = []
+            # Get worker information
+            workers = redis_manager.get_workers_for_job(job_id)
+
+            # Combine logs from job and from results
+            logs = redis_job.get("logs", [])
+            
+            # Add result logs if not already in job logs
             for domain, result in results.items():
                 if result.get("success"):
                     logs.append(
@@ -446,8 +457,10 @@ async def get_status(job_id: str):
                 "total": redis_job["total"],
                 "completed": successful,
                 "failed": failed,
+                "progress_percentage": progress_percentage,
                 "current_domain": None,
                 "logs": logs,
+                "workers": workers,
                 "pending_approvals": {},  # Redis workers auto-approve
                 "approved_data": {
                     d: r["data"] for d, r in results.items() if r.get("success")
@@ -465,8 +478,17 @@ async def get_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = processing_jobs[job_id]
+    
+    # Calculate progress for sequential jobs too
+    total = len(job.get("domains", []))
+    completed = len(job.get("approved_data", {})) + len(job.get("rejected_domains", []))
+    progress_percentage = 0
+    if total > 0:
+        progress_percentage = round(completed / total * 100)
+    
     return {
         **job,
+        "progress_percentage": progress_percentage,
         "pending_count": len(job.get("pending_approvals", {})),
         "approved_count": len(job.get("approved_data", {})),
         "rejected_count": len(job.get("rejected_domains", [])),

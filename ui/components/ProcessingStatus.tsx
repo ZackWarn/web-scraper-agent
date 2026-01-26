@@ -13,6 +13,14 @@ interface LogEntry {
   message: string;
 }
 
+interface WorkerStatus {
+  worker_id: string;
+  domain: string | null;
+  progress: number;
+  status: "idle" | "processing" | "complete" | "error";
+  updated_at: string;
+}
+
 export default function ProcessingStatus({
   jobId,
   onComplete,
@@ -21,6 +29,10 @@ export default function ProcessingStatus({
   const [isCompleted, setIsCompleted] = useState(false);
   const [workerStatus, setWorkerStatus] = useState<string>("idle");
   const [queueCounts, setQueueCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [progress, setProgress] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [workers, setWorkers] = useState<WorkerStatus[]>([]);
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
   const [preview, setPreview] = useState<{ domain: string; data: any } | null>(null);
   const [pendingList, setPendingList] = useState<{ domain: string; data: any }[]>([]);
@@ -42,11 +54,31 @@ export default function ProcessingStatus({
         const res = await fetch(`${API_BASE}/api/status/${jobId}`);
         const data = await res.json();
 
+        // Update progress
+        if (data.progress_percentage !== undefined) {
+          setProgress(data.progress_percentage);
+        }
+        if (data.total !== undefined) {
+          setTotalCount(data.total);
+        }
+        if (data.completed !== undefined) {
+          setCompletedCount(data.completed);
+        }
+
+        // Update workers
+        if (data.workers && Array.isArray(data.workers)) {
+          setWorkers(data.workers);
+        }
+
         setQueueCounts({
           pending: data.pending_count ?? 0,
           approved: data.approved_count ?? 0,
           rejected: data.rejected_count ?? 0,
         });
+
+        // Update progress percentage
+        const progressPercent = data.progress_percentage ?? 0;
+        setProgress(progressPercent);
 
         // Update worker status
         if (data.status) {
@@ -174,6 +206,76 @@ export default function ProcessingStatus({
         </div>
       </div>
 
+      {/* Progress Bar */}
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+          <span className="text-sm font-bold text-blue-600">{progress}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-blue-500 to-blue-600 h-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          {completedCount} / {totalCount > 0 ? totalCount : (queueCounts.approved + queueCounts.rejected + queueCounts.pending)} completed
+        </div>
+      </div>
+
+      {/* Individual Worker Progress */}
+      {workers.length > 0 && (
+        <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <span>👥</span> Worker Status ({workers.length} active)
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {workers.map((worker) => (
+              <div key={worker.worker_id} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-700 truncate flex-1">
+                    {worker.worker_id}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    worker.status === "processing"
+                      ? "bg-blue-100 text-blue-700"
+                      : worker.status === "complete"
+                      ? "bg-green-100 text-green-700"
+                      : worker.status === "error"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {worker.status}
+                  </span>
+                </div>
+                {worker.domain && (
+                  <div className="text-xs text-gray-600 mb-2 truncate" title={worker.domain}>
+                    📄 {worker.domain}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        worker.status === "complete"
+                          ? "bg-green-500"
+                          : worker.status === "error"
+                          ? "bg-red-500"
+                          : "bg-blue-500"
+                      }`}
+                      style={{ width: `${worker.progress}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-bold text-gray-700 w-10 text-right">
+                    {worker.progress}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Real-time log display - with scrollbar gutter to prevent layout shift */}
       <div ref={logsContainerRef} className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-100 h-80 border border-gray-700" style={{ overflowY: "scroll" }}>
         {logs.length === 0 ? (
@@ -189,6 +291,7 @@ export default function ProcessingStatus({
                 </div>
               </div>
             ))}
+            <div ref={logsEndRef} />
           </div>
         )}
       </div>
@@ -352,6 +455,55 @@ export default function ProcessingStatus({
           <div className="text-xl font-bold text-blue-600">{logs.length}</div>
         </div>
       </div>
+
+      {/* Performance Timeline Graph */}
+      {logs.length > 0 && (
+        <div className="mt-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-200">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <span>📊</span> Performance Timeline
+          </h4>
+          <div className="bg-white rounded-lg p-4 border border-gray-200">
+            <div className="space-y-2">
+              {logs.slice(-10).map((log, idx) => {
+                const logTime = new Date().getTime() - (logs.length - idx) * 1000;
+                const barWidth = log.level === "success" ? 100 : log.level === "error" ? 80 : 60;
+                
+                return (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="text-xs text-gray-500 w-16">{log.timestamp}</div>
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden relative">
+                        <div
+                          className={`h-full flex items-center px-2 text-xs font-medium transition-all duration-500 ${
+                            log.level === "success"
+                              ? "bg-gradient-to-r from-green-400 to-green-500 text-white"
+                              : log.level === "error"
+                              ? "bg-gradient-to-r from-red-400 to-red-500 text-white"
+                              : log.level === "warning"
+                              ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white"
+                              : "bg-gradient-to-r from-blue-400 to-blue-500 text-white"
+                          }`}
+                          style={{ width: `${barWidth}%` }}
+                        >
+                          <span className="truncate">{log.message.substring(0, 50)}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 w-12 text-right">
+                        {barWidth}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {logs.length > 10 && (
+              <div className="text-xs text-gray-500 mt-3 text-center">
+                Showing last 10 of {logs.length} events
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
